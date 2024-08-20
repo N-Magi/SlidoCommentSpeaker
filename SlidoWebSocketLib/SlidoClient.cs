@@ -3,13 +3,15 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Text;
 using SlidoWebSocketLib.Model;
+using System.Text.Json;
+using System.Net.Sockets;
 
 namespace SlidoWebSocketLib
 {
-	public class WsReciveEventArgs
+	public class WsReciveEventArgs : EventArgs
 	{
 		public SlidoMessage slidoMessage { get; set; }
-		public ClientWebSocket wsSocket { get; set; }
+		public ClientWebSocket? wsSocket { get; set; }
 	}
 
 	public class SlidoClient
@@ -21,11 +23,16 @@ namespace SlidoWebSocketLib
 
 
 		public delegate void onWsReciveEventHandler(object sender, WsReciveEventArgs args);
-		public event onWsReciveEventHandler onWsRecive;
-		public delegate void onSlidoDisconnectedEventHandler(object sender);
-		public event onSlidoDisconnectedEventHandler onSlidoDisconnected;
-		public delegate void onSlidoNewQuestionReciveEventHandler(object sender, JsonNode? node);
-		public event onSlidoNewQuestionReciveEventHandler onSlidoNewCommentRecived;
+		public event onWsReciveEventHandler? onWsRecive;
+
+		public delegate void onSlidoNewQuestionReciveEventHandler(object sender, NewQuestionMessage? qMsg);
+		public event onSlidoNewQuestionReciveEventHandler? onSlidoNewQuestionRecived;
+
+		public delegate void onSlidoSectionUpdateEventHandler(object sender, SectionsUpdateMessage? sMsg);
+		public event onSlidoSectionUpdateEventHandler? onSlidoSectionUpdate;
+
+		public delegate void onSlidoWallStatusMessageReceivedEventHandler(object sender, WallStatusMessage? wMsg);
+		public event onSlidoWallStatusMessageReceivedEventHandler? onSlidoWallStatusMessageReceived;
 
 		public CancellationToken cancellationToken { get; set; } = CancellationToken.None;
 
@@ -57,15 +64,40 @@ namespace SlidoWebSocketLib
 					var jsonMessage = args.slidoMessage.Message;
 					var jsonNodes = System.Text.Json.Nodes.JsonNode.Parse(jsonMessage);
 					var instruction = jsonNodes?.AsArray()[0];
-					if (instruction?.GetValue<string>() != "newQuestion") return;
-					var body = jsonNodes?.AsArray()[1]; //コメント処理系のちゃんとした実装が必要になるかも
-					onSlidoNewCommentRecived(this, body);
 
+					if (instruction?.GetValue<string>() == "newQuestion")
+					{
+						var paramss = getParams<NewQuestionMessage>(jsonNodes);
+						onSlidoNewQuestionRecived?.Invoke(this, paramss);
+						return;
+					}
+
+					if (instruction?.GetValue<string>() == "event.sections.update")
+					{
+						onSlidoSectionUpdate?.Invoke(this, getParams<SectionsUpdateMessage>(jsonNodes));
+						return;
+					}
+
+					if (instruction?.GetValue<string>() == "wall.status")
+					{
+						onSlidoWallStatusMessageReceived?.Invoke(this, getParams<WallStatusMessage>(jsonNodes));
+						return;
+					}
 				}
 			};
 
 			return await Loop();
 		}
+
+		private ParamType? getParams<ParamType>(JsonNode? node)
+		{
+			var body = node?.AsArray()?[1]?["params"]; //コメント処理系のちゃんとした実装が必要になるかも
+			if (body == null)
+				return default(ParamType);
+			var newMsg = body.Deserialize<ParamType>(JsonSerializerOptions.Default);
+			return newMsg;
+		}
+
 
 		public void SubscribeSession(string accessToken, string targets)
 		{
@@ -79,7 +111,7 @@ namespace SlidoWebSocketLib
 		}
 
 
-		public async Task<string> ReciveMessageAsync(ClientWebSocket wsock)
+		public async Task<string?> ReciveMessageAsync(ClientWebSocket wsock)
 		{
 			var message = "";
 			var eomFlag = false;
@@ -90,7 +122,7 @@ namespace SlidoWebSocketLib
 				if (result.MessageType == WebSocketMessageType.Close)
 				{
 					await wsClient.CloseAsync(WebSocketCloseStatus.NormalClosure, "Close", cancellationToken);
-					this?.onSlidoDisconnected(this);
+
 					return null;
 				}
 				ArraySegment<byte> segment = new ArraySegment<byte>(buffer, 0, result.Count);
@@ -109,7 +141,16 @@ namespace SlidoWebSocketLib
 			Regex codeRegex = new Regex(@"^\d+", RegexOptions.None);
 			Regex msgRegex = new Regex(@"\[.+\]$", RegexOptions.None);
 
-			var code = int.Parse(codeRegex.Match(message).Value); // tryparseにしないとよくない
+			int code;
+			var value = int.TryParse(codeRegex.Match(message).Value, out code);
+			if (!value)
+			{
+				Console.WriteLine("parse failed");
+				return default(SlidoMessage);
+			}
+
+			if (message == null)
+				return new SlidoMessage { Code = code, Message = "" };
 
 			var msg = msgRegex.Match(message).Value;
 
@@ -117,8 +158,10 @@ namespace SlidoWebSocketLib
 
 		}
 
+
 		public async Task<bool> Loop()
 		{
+
 			var awaiter = Task.Run(async () =>
 			{
 				while (true)
@@ -131,7 +174,7 @@ namespace SlidoWebSocketLib
 					}
 
 					var slidoMsg = GetSlidoMesasge(rawMsg);
-					onWsRecive(this, new WsReciveEventArgs { slidoMessage = slidoMsg, wsSocket = wsClient });
+					onWsRecive?.Invoke(this, new WsReciveEventArgs { slidoMessage = slidoMsg, wsSocket = wsClient });
 				}
 			}).GetAwaiter();
 
@@ -146,8 +189,6 @@ namespace SlidoWebSocketLib
 					await wsClient.SendAsync(Encoding.UTF8.GetBytes(message), WebSocketMessageType.Text, true, cancellationToken);
 				}
 			});
-
-			awaiter.GetResult();
 
 			return true;
 		}

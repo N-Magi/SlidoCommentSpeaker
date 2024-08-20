@@ -5,15 +5,25 @@ using System.Media;
 
 Console.WriteLine("Hello, World!");
 var client = new SlidoClient();
-var uri = new Uri("wss://app.sli.do/eu1/stream/v0.5/stream-sio/?slidoappVersion=SlidoParticipantApp%2F57.101.2%20(web)&clientId=F7ZREtj7ikuPqyr&EIO=4&transport=websocket&t=P5FX4da");
+var uri = new Uri("wss://app.sli.do/eu1/stream/v0.5/stream-sio/?slidoappVersion=SlidoParticipantApp%2F57.112.3%20(web)&clientId=FL95vpQtwjIw0Tf&EIO=4&transport=websocket&t=P5lBslZ");
 
-client.onSlidoNewCommentRecived += Client_onSlidoNewCommentRecived;
-client.onWsRecive += Sclient_onWsRecive;
+client.onSlidoNewQuestionRecived += Client_onSlidoNewCommentRecived;
+client.onWsRecive += Client_onWsRecive;
 
-async void Client_onSlidoNewCommentRecived(object sender, System.Text.Json.Nodes.JsonNode? node)
+void Client_onWsRecive(object sender, WsReciveEventArgs args)
+{
+	Console.WriteLine($"{args.slidoMessage.Code}/{args.slidoMessage.Message}");
+	if (args.slidoMessage.Code == 40)
+	{
+		var client = (SlidoClient)sender;
+		client.SubscribeSession("d5cf042500fe2b5b91f88c468fb510a557ffae61.eu1", "slido/events/41174063-5514-4874-8793-c9c154810a44/*");
+	}
+};
+
+async void Client_onSlidoNewCommentRecived(object sender, SlidoWebSocketLib.Model.NewQuestionMessage? msg)
 {
 	VoicevoxClient vclient = new VoicevoxClient();
-	var word = node["params"]["text_formatted"]?.GetValue<string>();
+	var word = msg?.text_formatted;
 	if (word == null) return;
 	var q = await vclient.GetQueries(word);
 	Console.WriteLine(q);
@@ -25,15 +35,6 @@ async void Client_onSlidoNewCommentRecived(object sender, System.Text.Json.Nodes
 	player.Play();
 }
 
-static void Sclient_onWsRecive(object sender, WsReciveEventArgs args)
-{
-	Console.WriteLine($"{args.slidoMessage.Code}/{args.slidoMessage.Message}");
-	if (args.slidoMessage.Code == 40)
-	{
-		var client = (SlidoClient)sender;
-		client.SubscribeSession("b8c297fc4a92877afaa9b55c48fe9a0a09cc1ec8.eu1", "slido/events/86b060cf-4f3a-47fb-8f91-b3e1d53eceef/*");
-	}
-}
 await client.connect(uri);
 
 
