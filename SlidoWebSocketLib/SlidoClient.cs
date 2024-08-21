@@ -34,23 +34,51 @@ namespace SlidoWebSocketLib
 		public delegate void onSlidoWallStatusMessageReceivedEventHandler(object sender, WallStatusMessage? wMsg);
 		public event onSlidoWallStatusMessageReceivedEventHandler? onSlidoWallStatusMessageReceived;
 
+
+		public string AccessToken { get; set; }
+		public string Target { get; set; }
+
 		public CancellationToken cancellationToken { get; set; } = CancellationToken.None;
 
-		public async void ConnectByUrl(string url)
+		public async Task<bool> GetTargetandAccessToken(string url)
 		{
 			Uri uri = new Uri(url);
 			var hash = uri.Segments[2].Replace("/", "");
 
+			//イベントuuidの取得
 			var eventApiUrl = "https://app.sli.do/eu1/api/v0.5/app/events?hash=" + hash;
 			HttpClient client = new HttpClient();
 			client.BaseAddress = uri;
-			var eventResponse = await client.GetAsync(uri, cancellationToken);
+			var eventResponse = await client.GetAsync(eventApiUrl, cancellationToken);
+			var res = await eventResponse.Content.ReadAsStringAsync();
+			var eventJsonNode = JsonNode.Parse(res);
+			var events = eventJsonNode.Deserialize<Model.EventApi>();
+			if (events == null)
+				throw new Exception("falied to parse events api response");
 
+			//アクセストークンの取得
+			var authApiUrl = @$"https://app.sli.do/eu1/api/v0.5/events/{events.uuid}/auth";
+			var content = new StringContent("{\"initialAppViewer\":\"browser--other\",\"granted_consents\":[\"StoreEssentialCookies\"]}", Encoding.UTF8);
+			content.Headers.ContentType.MediaType = "application/json";
+			var authResponse = await client.PostAsync(authApiUrl, content, cancellationToken);
+			var authJsonNode = JsonNode.Parse(await authResponse.Content.ReadAsStringAsync());
+			var auth = authJsonNode.Deserialize<Model.AuthApi>();
+			if (auth == null)
+				throw new Exception("failed to parse auth api response");
 
+			Target = $"slido/events/{events.uuid}/*";
+			AccessToken = auth.access_token;
 
+			return true;
 		}
 
-		public async Task<bool> ConnectByWebsocketUrl(Uri uri)
+		public async Task<bool> Connect()
+		{
+			var slidoWebSocketUri = new Uri("wss://app.sli.do/eu1/stream/v0.5/stream-sio/?slidoappVersion=SlidoParticipantApp%2F57.113.3%20(web)&EIO=4&transport=websocket");
+			return await Connect(slidoWebSocketUri);
+		}
+
+		public async Task<bool> Connect(Uri uri)
 		{
 			await wsClient.ConnectAsync(uri, cancellationToken);
 
@@ -112,6 +140,10 @@ namespace SlidoWebSocketLib
 			return newMsg;
 		}
 
+		public void SubscribeSession()
+		{
+			SubscribeSession(AccessToken, Target);
+		}
 
 		public void SubscribeSession(string accessToken, string targets)
 		{
