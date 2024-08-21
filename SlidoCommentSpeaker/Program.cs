@@ -10,13 +10,14 @@ using System.Media;
 //var accessToken = Console.ReadLine();
 //Console.WriteLine($"Enter Target");
 //var target = Console.ReadLine();
-Console.WriteLine("Enter Uri");
+Console.WriteLine("Enter SlidoURL(Https://...");
 var uriStr = Console.ReadLine();
 var client = new SlidoClient();
+
+
+await client.GetTargetAndToken(uriStr);
 client.onSlidoNewQuestionRecived += Client_onSlidoNewCommentRecived;
 client.onWsRecive += Client_onWsRecive;
-
-await client.GetTargetandAccessToken(uriStr);
 void Client_onWsRecive(object sender, WsReciveEventArgs args)
 {
 	Console.WriteLine($"{args.slidoMessage.Code}/{args.slidoMessage.Message}");

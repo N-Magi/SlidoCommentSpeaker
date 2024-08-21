@@ -35,12 +35,12 @@ namespace SlidoWebSocketLib
 		public event onSlidoWallStatusMessageReceivedEventHandler? onSlidoWallStatusMessageReceived;
 
 
-		public string AccessToken { get; set; }
-		public string Target { get; set; }
+		public string? AccessToken { get; set; }
+		public string? Target { get; set; }
 
 		public CancellationToken cancellationToken { get; set; } = CancellationToken.None;
 
-		public async Task<bool> GetTargetandAccessToken(string url)
+		public async Task<bool> GetTargetAndToken(string url)
 		{
 			Uri uri = new Uri(url);
 			var hash = uri.Segments[2].Replace("/", "");
@@ -157,7 +157,7 @@ namespace SlidoWebSocketLib
 		}
 
 
-		public async Task<string?> ReciveMessageAsync(ClientWebSocket wsock)
+		private async Task<string?> ReciveMessageAsync(ClientWebSocket wsock)
 		{
 			var message = "";
 			var eomFlag = false;
@@ -181,7 +181,7 @@ namespace SlidoWebSocketLib
 		}
 
 
-		public SlidoMessage GetSlidoMesasge(string message)
+		private SlidoMessage GetSlidoMesasge(string message)
 		{
 
 			Regex codeRegex = new Regex(@"^\d+", RegexOptions.None);
