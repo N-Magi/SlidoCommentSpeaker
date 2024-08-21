@@ -36,7 +36,21 @@ namespace SlidoWebSocketLib
 
 		public CancellationToken cancellationToken { get; set; } = CancellationToken.None;
 
-		public async Task<bool> connect(Uri uri)
+		public async void ConnectByUrl(string url)
+		{
+			Uri uri = new Uri(url);
+			var hash = uri.Segments[2].Replace("/", "");
+
+			var eventApiUrl = "https://app.sli.do/eu1/api/v0.5/app/events?hash=" + hash;
+			HttpClient client = new HttpClient();
+			client.BaseAddress = uri;
+			var eventResponse = await client.GetAsync(uri, cancellationToken);
+
+
+
+		}
+
+		public async Task<bool> ConnectByWebsocketUrl(Uri uri)
 		{
 			await wsClient.ConnectAsync(uri, cancellationToken);
 
