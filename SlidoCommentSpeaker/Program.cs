@@ -3,10 +3,14 @@ using SlidoWebSocketLib;
 using VoicevoxRestLib;
 using System.Media;
 
-Console.WriteLine("Hello, World!");
+Console.WriteLine("Enter Uri(start with wss://...)");
+var uriStr = Console.ReadLine();
 var client = new SlidoClient();
-var uri = new Uri("wss://app.sli.do/eu1/stream/v0.5/stream-sio/?slidoappVersion=SlidoParticipantApp%2F57.112.3%20(web)&clientId=FL95vpQtwjIw0Tf&EIO=4&transport=websocket&t=P5lBslZ");
-
+var uri = new Uri(uriStr);
+Console.WriteLine("Enter Access Token");
+var accessToken = Console.ReadLine();
+Console.WriteLine($"Enter Target");
+var target = Console.ReadLine();
 client.onSlidoNewQuestionRecived += Client_onSlidoNewCommentRecived;
 client.onWsRecive += Client_onWsRecive;
 
@@ -16,7 +20,7 @@ void Client_onWsRecive(object sender, WsReciveEventArgs args)
 	if (args.slidoMessage.Code == 40)
 	{
 		var client = (SlidoClient)sender;
-		client.SubscribeSession("d5cf042500fe2b5b91f88c468fb510a557ffae61.eu1", "slido/events/41174063-5514-4874-8793-c9c154810a44/*");
+		client.SubscribeSession(accessToken, target);
 	}
 };
 
