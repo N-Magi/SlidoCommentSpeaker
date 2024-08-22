@@ -10,28 +10,20 @@ using System.Media;
 //var accessToken = Console.ReadLine();
 //Console.WriteLine($"Enter Target");
 //var target = Console.ReadLine();
+
+
 Console.WriteLine("Enter SlidoURL(Https://...");
 var uriStr = Console.ReadLine();
-var client = new SlidoClient();
 
+var tokens = await SlidoClient.GetTargetAndToken(uriStr, CancellationToken.None);
 
-await client.GetTargetAndToken(uriStr);
-client.onSlidoNewQuestionRecived += Client_onSlidoNewCommentRecived;
-client.onWsRecive += Client_onWsRecive;
-void Client_onWsRecive(object sender, WsReciveEventArgs args)
-{
-	Console.WriteLine($"{args.slidoMessage.Code}/{args.slidoMessage.Message}");
-	if (args.slidoMessage.Code == 40)
-	{
-		var client = (SlidoClient)sender;
-		client.SubscribeSession();
-	}
-};
+var client = new SlidoClient(tokens);
+client.onSlidoNewQuestionReceived += Client_onSlidoNewCommentRecived;
 
-async void Client_onSlidoNewCommentRecived(object sender, SlidoWebSocketLib.Model.NewQuestionMessage? msg)
+async void Client_onSlidoNewCommentRecived(object sender, SlidoWebSocketLib.Events.SlidoNewQuestionReceiveEventArgs args)
 {
 	VoicevoxClient vclient = new VoicevoxClient();
-	var word = msg?.text_formatted;
+	var word = args.QuestonMessage.text_formatted;
 	if (word == null) return;
 	var q = await vclient.GetQueries(word);
 	Console.WriteLine(q);

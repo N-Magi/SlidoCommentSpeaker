@@ -5,15 +5,12 @@ using System.Text;
 using SlidoWebSocketLib.Model;
 using System.Text.Json;
 using System.Net.Sockets;
+using SlidoWebSocketLib.Events;
+using System.Reflection;
+
 
 namespace SlidoWebSocketLib
 {
-	public class WsReciveEventArgs : EventArgs
-	{
-		public SlidoMessage slidoMessage { get; set; }
-		public ClientWebSocket? wsSocket { get; set; }
-	}
-
 	public class SlidoClient
 	{
 
@@ -22,16 +19,16 @@ namespace SlidoWebSocketLib
 		Queue<string> msgQueue = new Queue<string>();
 
 
-		public delegate void onWsReciveEventHandler(object sender, WsReciveEventArgs args);
+		public delegate void onWsReciveEventHandler(object sender, WsReceiveEventArgs args);
 		public event onWsReciveEventHandler? onWsRecive;
 
-		public delegate void onSlidoNewQuestionReciveEventHandler(object sender, NewQuestionMessage? qMsg);
-		public event onSlidoNewQuestionReciveEventHandler? onSlidoNewQuestionRecived;
+		public delegate void onSlidoNewQuestionReceiveEventHandler(object sender, SlidoNewQuestionReceiveEventArgs args);
+		public event onSlidoNewQuestionReceiveEventHandler? onSlidoNewQuestionReceived;
 
-		public delegate void onSlidoSectionUpdateEventHandler(object sender, SectionsUpdateMessage? sMsg);
+		public delegate void onSlidoSectionUpdateEventHandler(object sender, SectionUpdateEventArgs args);
 		public event onSlidoSectionUpdateEventHandler? onSlidoSectionUpdate;
 
-		public delegate void onSlidoWallStatusMessageReceivedEventHandler(object sender, WallStatusMessage? wMsg);
+		public delegate void onSlidoWallStatusMessageReceivedEventHandler(object sender, WallStatusMessgeReceivedEventArgs args);
 		public event onSlidoWallStatusMessageReceivedEventHandler? onSlidoWallStatusMessageReceived;
 
 
@@ -40,7 +37,7 @@ namespace SlidoWebSocketLib
 
 		public CancellationToken cancellationToken { get; set; } = CancellationToken.None;
 
-		public async Task<bool> GetTargetAndToken(string url)
+		public static async Task<(string target, string accessToken)> GetTargetAndToken(string url, CancellationToken cancellationToken)
 		{
 			Uri uri = new Uri(url);
 			var hash = uri.Segments[2].Replace("/", "");
@@ -66,33 +63,45 @@ namespace SlidoWebSocketLib
 			if (auth == null)
 				throw new Exception("failed to parse auth api response");
 
-			Target = $"slido/events/{events.uuid}/*";
-			AccessToken = auth.access_token;
 
-			return true;
+			return ($"slido/events/{events.uuid}/*", auth.access_token);
 		}
 
-		public async Task<bool> Connect()
+		public SlidoClient((string target, string accessToken) tokens)
+		{
+			Target = tokens.target;
+			AccessToken = tokens.accessToken;
+		}
+
+		public SlidoClient(string target, string accessToken)
+		{
+			Target = target;
+			AccessToken = accessToken;
+		}
+
+
+		public async Task<bool> Connect(bool autoSubscribe = true)
 		{
 			var slidoWebSocketUri = new Uri("wss://app.sli.do/eu1/stream/v0.5/stream-sio/?slidoappVersion=SlidoParticipantApp%2F57.113.3%20(web)&EIO=4&transport=websocket");
-			return await Connect(slidoWebSocketUri);
+			return await Connect(slidoWebSocketUri, autoSubscribe);
 		}
 
-		public async Task<bool> Connect(Uri uri)
+		public async Task<bool> Connect(Uri uri, bool autoSubscribe = true)
 		{
 			await wsClient.ConnectAsync(uri, cancellationToken);
 
 			//WebSocketのKeepAlive
 			onWsRecive += (sender, args) =>
 			{
-				if (args.slidoMessage.Code == 2)
+
+				if (args.SlidoMessage.Code == 2)
 					msgQueue.Enqueue("3");
 			};
 
 			//初期接続時のSID取得
 			onWsRecive += (sender, args) =>
 			{
-				if (args.slidoMessage.Code == 0)
+				if (args.SlidoMessage.Code == 0)
 				{
 					msgQueue.Enqueue("40");
 
@@ -101,28 +110,38 @@ namespace SlidoWebSocketLib
 
 			onWsRecive += (sender, args) =>
 			{
-				if (args.slidoMessage.Code == 42)
+				if (args.SlidoMessage.Code == 40)
 				{
-					var jsonMessage = args.slidoMessage.Message;
+					SubscribeSession();
+				}
+			};
+
+
+
+			onWsRecive += (sender, args) =>
+			{
+				if (args.SlidoMessage.Code == 42)
+				{
+					var jsonMessage = args.SlidoMessage.Message;
 					var jsonNodes = System.Text.Json.Nodes.JsonNode.Parse(jsonMessage);
 					var instruction = jsonNodes?.AsArray()[0];
 
 					if (instruction?.GetValue<string>() == "newQuestion")
 					{
-						var paramss = getParams<NewQuestionMessage>(jsonNodes);
-						onSlidoNewQuestionRecived?.Invoke(this, paramss);
+						var questionMsg = getParams<NewQuestionMessage>(jsonNodes);
+						onSlidoNewQuestionReceived?.Invoke(this, new SlidoNewQuestionReceiveEventArgs() { QuestonMessage = questionMsg });
 						return;
 					}
 
 					if (instruction?.GetValue<string>() == "event.sections.update")
 					{
-						onSlidoSectionUpdate?.Invoke(this, getParams<SectionsUpdateMessage>(jsonNodes));
+						onSlidoSectionUpdate?.Invoke(this, new SectionUpdateEventArgs() { UpdateMessage = getParams<SectionsUpdateMessage>(jsonNodes) });
 						return;
 					}
 
 					if (instruction?.GetValue<string>() == "wall.status")
 					{
-						onSlidoWallStatusMessageReceived?.Invoke(this, getParams<WallStatusMessage>(jsonNodes));
+						onSlidoWallStatusMessageReceived?.Invoke(this, new WallStatusMessgeReceivedEventArgs() { WallStatusMessage = getParams<WallStatusMessage>(jsonNodes) });
 						return;
 					}
 				}
@@ -191,7 +210,7 @@ namespace SlidoWebSocketLib
 			var value = int.TryParse(codeRegex.Match(message).Value, out code);
 			if (!value)
 			{
-				Console.WriteLine("parse failed");
+
 				return default(SlidoMessage);
 			}
 
@@ -220,7 +239,7 @@ namespace SlidoWebSocketLib
 					}
 
 					var slidoMsg = GetSlidoMesasge(rawMsg);
-					onWsRecive?.Invoke(this, new WsReciveEventArgs { slidoMessage = slidoMsg, wsSocket = wsClient });
+					onWsRecive?.Invoke(this, new WsReceiveEventArgs { SlidoMessage = slidoMsg, WsSocket = wsClient });
 				}
 			}).GetAwaiter();
 
@@ -231,7 +250,7 @@ namespace SlidoWebSocketLib
 					if (msgQueue.Count <= 0) continue;
 
 					var message = msgQueue.Dequeue();
-					Console.WriteLine(message);
+
 					await wsClient.SendAsync(Encoding.UTF8.GetBytes(message), WebSocketMessageType.Text, true, cancellationToken);
 				}
 			});
