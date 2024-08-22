@@ -9,7 +9,7 @@ Slidoのコメントを読み取りずんだもんにしゃべらせるソフト
  1. [リリース](https://github.com/N-Magi/SlidoCommentSpeaker/releases)から最新版のバイナリをダウンロードします。
  2. ずんだもんを起動します
  3. 解凍し内部のexeファイルを実行します。
- 4. ブラウザを使用した設定を行います
+ 4. ~ブラウザを使用した設定を行います~ 必要なくなりました SlidoのURLを入力するだけで利用可能です
 
  ## ブラウザを使用した設定
  ![](https://github.com/N-Magi/SlidoCommentSpeaker/blob/master/screenshot.png?raw=true)
