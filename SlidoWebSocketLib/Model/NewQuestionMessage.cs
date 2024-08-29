@@ -9,10 +9,10 @@ namespace SlidoWebSocketLib.Model
 {
 	public class NewQuestionMessage
 	{
-		public Author author { get; set; }
+		public Author? author { get; set; }
 
 		[JsonPropertyName("attrs")]
-		public NewQuestionAttrs attrs { get; set; }
+		public NewQuestionAttrs? attrs { get; set; }
 		public string type { get; set; }
 		public string text_formatted { get; set; }
 		public int event_question_id { get; set; }
@@ -39,12 +39,16 @@ namespace SlidoWebSocketLib.Model
 
 	public class Author
 	{
+		public object attrs { get; set; }
+		public int event_user_id { get; set; }
+		public string name { get; set; }
 	}
 
 
 	public class NewQuestionAttrs
 	{
 		public string language { get; set; }
+		public string author_name { get; set; }
 		public string sentiment { get; set; }
 		public bool is_profane { get; set; }
 		public object[] profanity_metadata { get; set; }

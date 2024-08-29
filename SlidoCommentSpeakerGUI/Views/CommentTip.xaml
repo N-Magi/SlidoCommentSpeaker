@@ -1,0 +1,17 @@
+﻿<UserControl x:Class="SlidoCommentSpeakerGUI.Views.CommentTip"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:SlidoCommentSpeakerGUI.Views"
+             mc:Ignorable="d" 
+             Height="60" Width="400">
+    <Border BorderBrush="Gray" BorderThickness="2" CornerRadius="2" Margin="0,0,0,5" Background="{Binding StatusColour}">
+        <Grid Margin="2,2,2,2">
+            <TextBlock Text="{Binding Comment}" FontSize="12" TextAlignment="Justify" TextWrapping="Wrap" TextTrimming="WordEllipsis" x:Name="TextBlock_Commnet" Height="40" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+            <TextBlock Text="{Binding Author}" FontSize="12" TextAlignment="Right" x:Name="TextBlock_Author" Width="150" Height="20" HorizontalAlignment="Right" VerticalAlignment="Bottom"></TextBlock>
+        </Grid>
+    </Border>
+</UserControl>
+
+

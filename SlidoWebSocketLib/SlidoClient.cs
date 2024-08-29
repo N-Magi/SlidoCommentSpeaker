@@ -7,11 +7,15 @@ using System.Text.Json;
 using System.Net.Sockets;
 using SlidoWebSocketLib.Events;
 using System.Reflection;
+using System.Collections.Concurrent;
+using static SlidoWebSocketLib.SlidoClient;
+using System;
+using System.ComponentModel;
 
 
 namespace SlidoWebSocketLib
 {
-	public class SlidoClient
+	public class SlidoClient : IDisposable
 	{
 
 		ClientWebSocket wsClient = new ClientWebSocket();
@@ -31,9 +35,23 @@ namespace SlidoWebSocketLib
 		public delegate void onSlidoWallStatusMessageReceivedEventHandler(object sender, WallStatusMessgeReceivedEventArgs args);
 		public event onSlidoWallStatusMessageReceivedEventHandler? onSlidoWallStatusMessageReceived;
 
+		public delegate void onSlidoDisconnectedEventHandler(object sender);
+		public event onSlidoDisconnectedEventHandler? onSlidoDisconnected;
+
+		public delegate void onSlidoConnectedEventHandler(object sender);
+		public event onSlidoConnectedEventHandler? onSlidoConnected;
 
 		public string? AccessToken { get; set; }
 		public string? Target { get; set; }
+
+		public bool isConnected
+		{
+			get
+			{
+				return wsClient.State == WebSocketState.Open || wsClient.State == WebSocketState.Connecting;
+			}
+		}
+
 
 		public CancellationToken cancellationToken { get; set; } = CancellationToken.None;
 
@@ -79,15 +97,29 @@ namespace SlidoWebSocketLib
 			AccessToken = accessToken;
 		}
 
-
-		public async Task<bool> Connect(bool autoSubscribe = true)
+		public SlidoClient()
 		{
-			var slidoWebSocketUri = new Uri("wss://app.sli.do/eu1/stream/v0.5/stream-sio/?slidoappVersion=SlidoParticipantApp%2F57.113.3%20(web)&EIO=4&transport=websocket");
-			return await Connect(slidoWebSocketUri, autoSubscribe);
+
 		}
 
-		public async Task<bool> Connect(Uri uri, bool autoSubscribe = true)
+		public void SetTokens((string target, string accessToken) tokens)
 		{
+			Target = tokens.target;
+			AccessToken = tokens.accessToken;
+		}
+
+		public async Task Connect(bool autoSubscribe = true)
+		{
+			var slidoWebSocketUri = new Uri("wss://app.sli.do/eu1/stream/v0.5/stream-sio/?slidoappVersion=SlidoParticipantApp%2F57.113.3%20(web)&EIO=4&transport=websocket");
+
+
+			await Connect(slidoWebSocketUri, autoSubscribe);
+			return;
+		}
+
+		public async Task Connect(Uri uri, bool autoSubscribe = true)
+		{
+			
 			await wsClient.ConnectAsync(uri, cancellationToken);
 
 			//WebSocketのKeepAlive
@@ -108,11 +140,21 @@ namespace SlidoWebSocketLib
 				}
 			};
 
+			//Slido セッション接続
 			onWsRecive += (sender, args) =>
 			{
 				if (args.SlidoMessage.Code == 40)
 				{
 					SubscribeSession();
+				}
+			};
+
+			//Slidoイベント発火
+			onWsRecive += (sender, args) =>
+			{
+				if (args.SlidoMessage.Code == 430)
+				{
+					onSlidoConnected?.Invoke(this);
 				}
 			};
 
@@ -147,7 +189,8 @@ namespace SlidoWebSocketLib
 				}
 			};
 
-			return await Loop();
+			await Loop();
+			return;
 		}
 
 		private ParamType? getParams<ParamType>(JsonNode? node)
@@ -183,6 +226,7 @@ namespace SlidoWebSocketLib
 			do
 			{
 				var buffer = new byte[1024];
+				if (wsock.State != WebSocketState.Open) return null;
 				var result = await wsClient.ReceiveAsync(buffer, cancellationToken);
 				if (result.MessageType == WebSocketMessageType.Close)
 				{
@@ -223,39 +267,78 @@ namespace SlidoWebSocketLib
 
 		}
 
-
-		public async Task<bool> Loop()
+		public async Task DisconnectAsync()
 		{
+			
+			await wsClient.CloseAsync(WebSocketCloseStatus.Empty, null, cancellationToken);
+		}
 
+		public async Task Loop()
+		{
+			var exeptions = new ConcurrentQueue<Exception>();
+			var loopFlag = true; //true for loop, false for stop;
 			var awaiter = Task.Run(async () =>
 			{
-				while (true)
+				while (loopFlag && isConnected)
 				{
-					var rawMsg = await ReciveMessageAsync(wsClient);
-
-					if (wsClient.State == WebSocketState.Closed)
+					try
 					{
-						return;
-					}
+						var rawMsg = await ReciveMessageAsync(wsClient);
 
-					var slidoMsg = GetSlidoMesasge(rawMsg);
-					onWsRecive?.Invoke(this, new WsReceiveEventArgs { SlidoMessage = slidoMsg, WsSocket = wsClient });
+						if (wsClient.State == WebSocketState.Closed)
+						{
+							loopFlag = false;
+							break;
+						}
+
+						var slidoMsg = GetSlidoMesasge(rawMsg);
+						onWsRecive?.Invoke(this, new WsReceiveEventArgs { SlidoMessage = slidoMsg, WsSocket = wsClient });
+					}
+					catch (Exception ex)
+					{
+						exeptions.Enqueue(ex);
+						loopFlag = false;
+					}
 				}
 			}).GetAwaiter();
 
 			await Task.Run(async () =>
 			{
-				while (true)
+				while (loopFlag && isConnected)
 				{
-					if (msgQueue.Count <= 0) continue;
+					try
+					{
+						if (msgQueue.Count <= 0) continue;
 
-					var message = msgQueue.Dequeue();
+						var message = msgQueue.Dequeue();
 
-					await wsClient.SendAsync(Encoding.UTF8.GetBytes(message), WebSocketMessageType.Text, true, cancellationToken);
+						await wsClient.SendAsync(Encoding.UTF8.GetBytes(message), WebSocketMessageType.Text, true, cancellationToken);
+					}
+					catch (Exception ex)
+					{
+						exeptions.Enqueue(ex);
+						loopFlag = false;
+					}
 				}
 			});
+			msgQueue.Clear();
 
-			return true;
+			onSlidoDisconnected?.Invoke(this);
+
+			if (!exeptions.IsEmpty)
+			{
+				throw new AggregateException(exeptions);
+			}
+			var _ = await ReciveMessageAsync(wsClient);
+			return;
+		}
+
+		public void Dispose()
+		{
+			wsClient?.Dispose();
+			msgQueue = null;
+			AccessToken = null;
+			Target = null;
 		}
 	}
 }
