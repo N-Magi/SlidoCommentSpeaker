@@ -11,6 +11,7 @@ using System.Collections.Concurrent;
 using static SlidoWebSocketLib.SlidoClient;
 using System;
 using System.ComponentModel;
+using SlidoWebSocketLib.Model.SummaryApi;
 
 
 namespace SlidoWebSocketLib
@@ -21,6 +22,8 @@ namespace SlidoWebSocketLib
 		ClientWebSocket wsClient = new ClientWebSocket();
 
 		Queue<string> msgQueue = new Queue<string>();
+
+		public SummaryApi Summary { get; set; }
 
 
 		public delegate void onWsReciveEventHandler(object sender, WsReceiveEventArgs args);
@@ -55,15 +58,17 @@ namespace SlidoWebSocketLib
 
 		public CancellationToken cancellationToken { get; set; } = CancellationToken.None;
 
-		public static async Task<(string target, string accessToken)> GetTargetAndToken(string url, CancellationToken cancellationToken)
+		public async Task<(string target, string accessToken)> GetTargetAndToken(string url, CancellationToken cancellationToken)
 		{
 			Uri uri = new Uri(url);
 			var hash = uri.Segments[2].Replace("/", "");
 
-			//イベントuuidの取得
-			var eventApiUrl = "https://app.sli.do/eu1/api/v0.5/app/events?hash=" + hash;
+
 			HttpClient client = new HttpClient();
 			client.BaseAddress = uri;
+
+			//イベントuuidの取得
+			var eventApiUrl = "https://app.sli.do/eu1/api/v0.5/app/events?hash=" + hash;
 			var eventResponse = await client.GetAsync(eventApiUrl, cancellationToken);
 			var res = await eventResponse.Content.ReadAsStringAsync();
 			var eventJsonNode = JsonNode.Parse(res);
@@ -81,6 +86,14 @@ namespace SlidoWebSocketLib
 			if (auth == null)
 				throw new Exception("failed to parse auth api response");
 
+			var summaryApiUrl = @$"https://app.sli.do/eu1/api/v0.5/events/{events.uuid}"; 
+			var request = new HttpRequestMessage(HttpMethod.Get, summaryApiUrl);
+			request.Headers.Add("Authorization", $"Bearer {auth.access_token}");
+			var summaryResponse = await client.SendAsync(request,HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+			var summaryNodes = JsonNode.Parse(await summaryResponse.Content.ReadAsStringAsync());
+			var _summary = summaryNodes.Deserialize<Model.SummaryApi.SummaryApi>();
+
+			Summary = _summary;
 
 			return ($"slido/events/{events.uuid}/*", auth.access_token);
 		}
@@ -119,7 +132,7 @@ namespace SlidoWebSocketLib
 
 		public async Task Connect(Uri uri, bool autoSubscribe = true)
 		{
-			
+
 			await wsClient.ConnectAsync(uri, cancellationToken);
 
 			//WebSocketのKeepAlive
@@ -269,7 +282,7 @@ namespace SlidoWebSocketLib
 
 		public async Task DisconnectAsync()
 		{
-			
+
 			await wsClient.CloseAsync(WebSocketCloseStatus.Empty, null, cancellationToken);
 		}
 

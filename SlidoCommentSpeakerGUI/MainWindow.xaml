@@ -8,36 +8,38 @@
         mc:Ignorable="d"
         Title="SlidoCommentSpeakerGUI" Height="auto" Width="auto" SizeToContent="WidthAndHeight">
     <Grid Width="auto" Height="auto">
+        <ItemsControl ItemsSource="{Binding Comments}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <views:CommentList DataContext="{Binding}"></views:CommentList>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+<Grid Margin="5,410,0,0">
+    <Grid Name="Status" Margin="0,25,0,0">
 
-        <Grid Margin="5,410,0,0">
-            <Grid Name="Status" Margin="0,25,0,0">
+        <CheckBox Height="25" VerticalContentAlignment="Center" VerticalAlignment="Top" Margin="0,0,0,0" IsChecked="{Binding SlidoConnected}" IsEnabled="False">
+            <Label Height="25" VerticalAlignment="top">Slido Connected</Label>
+        </CheckBox>
 
-                <CheckBox Height="25" VerticalContentAlignment="Center" VerticalAlignment="Top" Margin="0,0,0,0" IsChecked="{Binding SlidoConnected}" IsEnabled="False">
-                    <Label Height="25" VerticalAlignment="top">Slido Connected</Label>
-                </CheckBox>
+                <CheckBox Height="25" VerticalContentAlignment="Center" VerticalAlignment="Top" Margin="130,0,0,0" IsEnabled="True" IsChecked="{Binding VoicevoxEnabled}" >
+            <Label Height="25" VerticalAlignment="top">VoiceVox Connected</Label>
+        </CheckBox>
+    </Grid>
+    <Grid Name="Input">
+        <TextBox Name="SlidoUrl" Text="{Binding SlidoUrl}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,0,0,0" Height="25" TextAlignment="Left" VerticalContentAlignment="Center" Width="320"></TextBox>
+        <Button Name="ConnectButton" Height="25" Width="75" Margin="325,0,5,5" HorizontalAlignment="Left" VerticalAlignment="Top" Command="{Binding ConnectButtonPressed}" Content="{Binding ButtonText}"></Button>
+    </Grid>
 
-                <CheckBox Height="25" VerticalContentAlignment="Center" VerticalAlignment="Top" Margin="130,0,0,0" IsEnabled="False">
-                    <Label Height="25" VerticalAlignment="top">VoiceVox Connected</Label>
-                </CheckBox>
-            </Grid>
-            <Grid Name="Input">
-                <TextBox Name="SlidoUrl" Text="{Binding SlidoUrl}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,0,0,0" Height="25" TextAlignment="Left" VerticalContentAlignment="Center" Width="320"></TextBox>
-                <Button Name="ConnectButton" Height="25" Width="75" Margin="325,0,5,5" HorizontalAlignment="Left" VerticalAlignment="Top" Command="{Binding ConnectButtonPressed}" Content="{Binding ButtonText}"></Button>
-            </Grid>
+</Grid>
 
-        </Grid>
-        
-        
-        
-        <ScrollViewer VerticalScrollBarVisibility="Hidden" Margin="5,5,5,5" Width="400" Height="400" HorizontalAlignment="Stretch" VerticalAlignment="Top">
-            <ItemsControl ItemsSource="{Binding Comments}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <views:CommentTip DataContext="{Binding}"></views:CommentTip>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
+
 
     </Grid>
 </Window>

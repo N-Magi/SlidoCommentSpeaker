@@ -2,25 +2,29 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Configuration;
 using System.DirectoryServices;
 using System.Linq;
+using System.Media;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
+using SlidoCommentSpeakerGUI.ViewModels;
 using SlidoWebSocketLib;
+using VoicevoxRestLib;
 
 namespace SlidoCommentSpeakerGUI
 {
-	class MainWindowViewModel : INotifyPropertyChanged
+	class MainWindowViewModel : ViewModelBase
 	{
 		SlidoWebSocketLib.SlidoClient slidoClient = null;
 
 		private readonly Dispatcher dispatcher;
 
-		private ObservableCollection<CommentTipViewModel> _comments = new();
-		public ObservableCollection<CommentTipViewModel> Comments
+		private ObservableCollection<CommentListViewModel> _comments = new();
+		public ObservableCollection<CommentListViewModel> Comments
 		{
 			get => _comments;
 
@@ -64,6 +68,18 @@ namespace SlidoCommentSpeakerGUI
 			}
 		}
 
+		private bool _voicevoxEnabled = false;
+		public bool VoicevoxEnabled
+		{
+			get => _voicevoxEnabled;
+			set
+			{
+				_voicevoxEnabled = value;
+				NotifyPropertyChanged();
+			}
+		}
+
+		private VoicevoxClient voiceClient = new VoicevoxClient();
 
 		public RelayCommand ConnectButtonPressed { get; set; }
 
@@ -72,8 +88,10 @@ namespace SlidoCommentSpeakerGUI
 		public MainWindowViewModel()
 		{
 			ConnectButtonPressed = new RelayCommand(_ => { onConnectButtonPressed(); });
+			//PropertyChanged += MainWindowViewModel_PropertyChanged;
 			dispatcher = Dispatcher.CurrentDispatcher;
 		}
+
 
 		/// <summary>
 		/// 接続・切断ボタン押下時の処理
@@ -85,14 +103,26 @@ namespace SlidoCommentSpeakerGUI
 			if (slidoClient?.isConnected != null)
 			{
 
+				Comments.Clear();
 				ButtonText = "Connect";
 				await slidoClient.DisconnectAsync();
 				slidoClient.Dispose();
 				return;
 			}
 
-			var tokens = await SlidoClient.GetTargetAndToken(SlidoUrl, CancellationToken.None);
-			slidoClient = new(tokens);
+
+			slidoClient = new();
+			var tokens = await slidoClient.GetTargetAndToken(SlidoUrl, CancellationToken.None);
+
+			slidoClient.SetTokens(tokens);
+
+			foreach (var section in slidoClient.Summary.sections)
+			{
+				var commentListVM = new CommentListViewModel();
+				commentListVM.SessionName = section.name;
+				commentListVM.SessionID = section.event_section_id;
+				Comments.Add(commentListVM);
+			}
 
 			slidoClient.onSlidoNewQuestionReceived += SlidoClient_onSlidoNewQuestionReceived;
 
@@ -105,9 +135,6 @@ namespace SlidoCommentSpeakerGUI
 				dispatcher?.BeginInvoke(new Action(() => { SlidoConnected = false; }));
 			};
 
-			//Comments.Add(new CommentTipViewModel() { Author = "aaa", Comment = "bbb" });
-			Console.WriteLine("Connected");
-
 			ButtonText = "Disconnect";
 
 			await slidoClient.Connect();
@@ -116,19 +143,27 @@ namespace SlidoCommentSpeakerGUI
 			//終了時謎の websocket Exceptionが発生している
 		}
 
-		private void SlidoClient_onSlidoNewQuestionReceived(object sender, SlidoWebSocketLib.Events.SlidoNewQuestionReceiveEventArgs args)
+		private async void SlidoClient_onSlidoNewQuestionReceived(object sender, SlidoWebSocketLib.Events.SlidoNewQuestionReceiveEventArgs args)
 		{
-			Console.WriteLine("onCommentRecieved");
-			dispatcher.BeginInvoke(new Action(() => { Comments.Add(new CommentTipViewModel() { Author = args.QuestonMessage.author.name, Comment = args.QuestonMessage.text_formatted }); }));
+			var sectionId = args.QuestonMessage.event_section_id;
+			var section = Comments.Where(a => a.SessionID == sectionId).First();
+
+			await dispatcher.BeginInvoke(new Action(() =>
+			{
+				section.Comments.Add(new CommentTipViewModel() { Author = args.QuestonMessage.author.name, Comment = args.QuestonMessage.text_formatted });
+
+			}));
+
+			if (!VoicevoxEnabled) return;
+
+			//voicevoxEnabled = trueの時に実行
+			var query = await voiceClient.GetQueries(args.QuestonMessage.text_formatted);
+			await voiceClient.Synthesis(query);
+			SoundPlayer player = new();
+			player.SoundLocation = Environment.CurrentDirectory + "/test.wav";
+			player.Load();
+			player.Play();
 		}
-
-		public event PropertyChangedEventHandler? PropertyChanged;
-
-		private void NotifyPropertyChanged([CallerMemberName] string propertyName = "")
-		{
-			PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-		}
-
 
 	}
 }
