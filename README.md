@@ -2,25 +2,38 @@
 
 Slidoのコメントを読み取りずんだもんにしゃべらせるソフトです。
 
+## 各ソリューションの役回り
+
+- SlidoCommentSpeaker
+
+  CLIアプリケーションです。
+  Slidoライブラリおよび、VoicevoxApiを触るためのライブラリを簡単に使用できるようにしています
+  
+
+- SlidoCommentSpeakerGUI
+  
+  GUIアプリケーションです。
+  app.sli.do/... 以下のURL(接続URL)を指定することでQ/Aを取得することができます
+  
+  すでに投稿済みのQ/Aに関しては読み込まれません。
+  コメントの出力機能もありません。
+
 ## 必要な物
  - 最新版のWindows 10
-
+   
 ## 使用方法
+
+### SlidoCommentSpeakerGUI
+ 1. [リリース](https://github.com/N-Magi/SlidoCommentSpeaker/releases)から最新版のバイナリをダウンロードして解凍します。
+ 2. **(読み上げ利用する場合)** Voicevoxを起動します
+ 3. バイナリ内部のexeファイルを起動します。
+ 4. 下のテキストボックスにSlidoURLを指定して Connectボタンを押下します。
+ 5. 接続後、各セクションごとの名前が表示されます
+ 6. **(読み上げを利用する場合)** **voicevoxを起動していることを確認して**　Voicevoxチェックマークをチェックします　接続した旨しゃべります
+### SlidoCommentSpeaker
  1. [リリース](https://github.com/N-Magi/SlidoCommentSpeaker/releases)から最新版のバイナリをダウンロードします。
  2. ずんだもんを起動します
  3. 解凍し内部のexeファイルを実行します。
- 4. ~ブラウザを使用した設定を行います~ 必要なくなりました SlidoのURLを入力するだけで利用可能です
-
- ## ブラウザを使用した設定
- ![](https://github.com/N-Magi/SlidoCommentSpeaker/blob/master/screenshot.png?raw=true)
- 1. Slidoを開きf12を押して開発者モードを起動します
- 2. ネットワークモニタ画面に切り替えて、ページをリロードします
- 3. WSフィルタを有効にして通信されるファイルを監視します。
- 4. 101 GETで一点だけ送受信される通信が見つかるのでこのファイルのURLをコピーします
- 5. このURLをソフト起動時の最初に要求されるuriに入力します。
- 6. その後応答タブから420 subscribeが送信されるのでこの内容をコピーしてメモ帳に貼り付けます
- 7. AccessToken/Targetをそれぞれコピーしてソフトが要求した順番で貼り付けます
- 8. 成功すると読み込めます
- 
+ 4. SlidoURLを入力します。　接続されると動きます
  
  
