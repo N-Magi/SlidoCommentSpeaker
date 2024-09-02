@@ -5,12 +5,16 @@ Slidoのコメントを読み取りずんだもんにしゃべらせるソフト
 ## 各ソリューションの役回り
 
 - SlidoCommentSpeaker
+
   CLIアプリケーションです。
   Slidoライブラリおよび、VoicevoxApiを触るためのライブラリを簡単に使用できるようにしています
+  
 
 - SlidoCommentSpeakerGUI
+  
   GUIアプリケーションです。
   app.sli.do/... 以下のURL(接続URL)を指定することでQ/Aを取得することができます
+  
   すでに投稿済みのQ/Aに関しては読み込まれません。
   コメントの出力機能もありません。
 
