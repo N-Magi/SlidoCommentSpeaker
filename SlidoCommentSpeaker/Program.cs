@@ -6,18 +6,17 @@ using System.Media;
 
 
 //var uri = new Uri(uriStr);
-//Console.WriteLine("Enter Access Token");
-//var accessToken = Console.ReadLine();
-//Console.WriteLine($"Enter Target");
-//var target = Console.ReadLine();
+Console.WriteLine("Enter Access Token");
+var accessToken = Console.ReadLine();
+Console.WriteLine($"Enter Target");
+var target = Console.ReadLine();
 
-//jPewKtZUHNhNfANGEHR4aT
 Console.WriteLine("Enter SlidoURL(Https://...");
 var uriStr = Console.ReadLine();
+var client = new SlidoClient();
+var tokens = await client.GetTargetAndToken(uriStr, CancellationToken.None);
+client.SetTokens(tokens);
 
-var tokens = await SlidoClient.GetTargetAndToken(uriStr, CancellationToken.None);
-
-var client = new SlidoClient(tokens);
 client.onSlidoNewQuestionReceived += Client_onSlidoNewCommentRecived;
 
 async void Client_onSlidoNewCommentRecived(object sender, SlidoWebSocketLib.Events.SlidoNewQuestionReceiveEventArgs args)
@@ -27,18 +26,15 @@ async void Client_onSlidoNewCommentRecived(object sender, SlidoWebSocketLib.Even
 	if (word == null) return;
 	var q = await vclient.GetQueries(word);
 	Console.WriteLine(q);
-	await vclient.Synthesis(q);
+	var voiceStream = await vclient.Synthesis(q);
 
 	SoundPlayer player = new();
-	player.SoundLocation = Environment.CurrentDirectory + "/test.wav";
+	player.Stream = voiceStream;
 	player.Load();
 	player.Play();
 }
 
 await client.Connect();
-
-
-
 
 
 
