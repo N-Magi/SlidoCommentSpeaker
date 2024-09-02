@@ -86,10 +86,10 @@ namespace SlidoWebSocketLib
 			if (auth == null)
 				throw new Exception("failed to parse auth api response");
 
-			var summaryApiUrl = @$"https://app.sli.do/eu1/api/v0.5/events/{events.uuid}"; 
+			var summaryApiUrl = @$"https://app.sli.do/eu1/api/v0.5/events/{events.uuid}";
 			var request = new HttpRequestMessage(HttpMethod.Get, summaryApiUrl);
 			request.Headers.Add("Authorization", $"Bearer {auth.access_token}");
-			var summaryResponse = await client.SendAsync(request,HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+			var summaryResponse = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 			var summaryNodes = JsonNode.Parse(await summaryResponse.Content.ReadAsStringAsync());
 			var _summary = summaryNodes.Deserialize<Model.SummaryApi.SummaryApi>();
 
@@ -282,7 +282,6 @@ namespace SlidoWebSocketLib
 
 		public async Task DisconnectAsync()
 		{
-
 			await wsClient.CloseAsync(WebSocketCloseStatus.Empty, null, cancellationToken);
 		}
 
