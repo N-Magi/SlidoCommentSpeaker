@@ -89,22 +89,34 @@ namespace SlidoCommentSpeakerGUI
 						//voicevox読み上げ用コード ここには絶対書いてはいけない
 						voicevoxWorker = Task.Run(async () =>
 						{
-							voicevoxQueue.Enqueue("ヴォイスボックスに接続しました");
-							while (VoicevoxEnabled)
+							try
 							{
-								if (voicevoxQueue.Count <= 0) { continue; }
-								//voicevoxEnabled = trueの時に実行
-								var query = await voiceClient.GetQueries(voicevoxQueue.Dequeue());
-								var queryNode = JsonNode.Parse(query);
-								//残存コメ数に応じて読み上げ速度を向上させる
-								queryNode["speedScale"] = Math.Pow(Math.E, (float)(voicevoxQueue.Count) / 10.0f) + 0.25;
-								//音声合成
-								var stream = await voiceClient.Synthesis(queryNode.ToJsonString());
-								//音声再生
-								player.Stream = stream;
-								player.Load();
-								
-								player.PlaySync();
+								voicevoxQueue.Enqueue("ヴォイスボックスに接続しました");
+								while (VoicevoxEnabled)
+								{
+									if (voicevoxQueue.Count <= 0) { continue; }
+									//voicevoxEnabled = trueの時に実行
+									var query = await voiceClient.GetQueries(voicevoxQueue.Dequeue());
+									var queryNode = JsonNode.Parse(query);
+									//残存コメ数に応じて読み上げ速度を向上させる
+									queryNode["speedScale"] = Math.Pow(Math.E, (float)(voicevoxQueue.Count) / 10.0f) + 0.25;
+									//音声合成
+									var stream = await voiceClient.Synthesis(queryNode.ToJsonString());
+									//音声再生
+									player.Stream = stream;
+									player.Load();
+									//コメント読み上げ中に新コメントの読み上げ防止
+									player.PlaySync();
+								}
+
+							}
+							catch (Exception ex)
+							{
+								dispatcher?.BeginInvoke(() =>
+								{
+									MessageBox.Show(ex.Message, "Error");
+									VoicevoxEnabled = false;
+								}, null);
 							}
 						});
 				}
