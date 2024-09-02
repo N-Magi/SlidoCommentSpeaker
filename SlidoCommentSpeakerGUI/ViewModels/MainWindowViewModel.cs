@@ -103,7 +103,8 @@ namespace SlidoCommentSpeakerGUI
 								//音声再生
 								player.Stream = stream;
 								player.Load();
-								player.Play();
+								
+								player.PlaySync();
 							}
 						});
 				}
