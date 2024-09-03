@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Configuration;
 using System.DirectoryServices;
+using System.IO;
 using System.Linq;
 using System.Media;
 using System.Reflection.Metadata;
@@ -13,6 +14,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Threading;
 using SlidoCommentSpeakerGUI.ViewModels;
 using SlidoWebSocketLib;
@@ -27,7 +29,7 @@ namespace SlidoCommentSpeakerGUI
 		private readonly Dispatcher dispatcher;
 
 		private VoicevoxClient voiceClient;
-		public Queue<string> voicevoxQueue { get; set; }
+		public Queue<Stream> voicevoxQueue { get; set; }
 
 		private Task voicevoxWorker;
 
@@ -91,19 +93,13 @@ namespace SlidoCommentSpeakerGUI
 						{
 							try
 							{
-								voicevoxQueue.Enqueue("ヴォイスボックスに接続しました");
+								//voicevoxQueue.Enqueue("ヴォイスボックスに接続しました");
+								voicevoxQueue.Enqueue(await SpeakVoicevox("ヴォイスボックスに接続しました"));
 								while (VoicevoxEnabled)
 								{
 									if (voicevoxQueue.Count <= 0) { continue; }
-									//voicevoxEnabled = trueの時に実行
-									var query = await voiceClient.GetQueries(voicevoxQueue.Dequeue());
-									var queryNode = JsonNode.Parse(query);
-									//残存コメ数に応じて読み上げ速度を向上させる
-									queryNode["speedScale"] = Math.Pow(Math.E, (float)(voicevoxQueue.Count) / 10.0f) + 0.25;
-									//音声合成
-									var stream = await voiceClient.Synthesis(queryNode.ToJsonString());
-									//音声再生
-									player.Stream = stream;
+
+									player.Stream = voicevoxQueue.Dequeue();
 									player.Load();
 									//コメント読み上げ中に新コメントの読み上げ防止
 									player.PlaySync();
@@ -130,7 +126,7 @@ namespace SlidoCommentSpeakerGUI
 			ConnectButtonPressed = new RelayCommand(_ => { onConnectButtonPressed(); });
 			//PropertyChanged += MainWindowViewModel_PropertyChanged;
 			dispatcher = Dispatcher.CurrentDispatcher;
-			voicevoxQueue = new Queue<string>();
+			voicevoxQueue = new Queue<Stream>();
 			voiceClient = new();
 		}
 
@@ -195,9 +191,23 @@ namespace SlidoCommentSpeakerGUI
 			await dispatcher.BeginInvoke(new Action(async () =>
 			{
 				section.Comments.Add(new CommentTipViewModel() { Author = args.QuestonMessage.author.name, Comment = args.QuestonMessage.text_formatted });
-				if (VoicevoxEnabled)
-					voicevoxQueue.Enqueue(args.QuestonMessage.text_formatted);
 			}));
+
+			if (VoicevoxEnabled)
+				voicevoxQueue.Enqueue(await SpeakVoicevox(args.QuestonMessage.text_formatted));
+
+		}
+
+		private async Task<Stream> SpeakVoicevox(string word)
+		{
+			//voicevoxEnabled = trueの時に実行
+			var query = await voiceClient.GetQueries(word);
+			var queryNode = JsonNode.Parse(query);
+			//残存コメ数に応じて読み上げ速度を向上させる
+			queryNode["speedScale"] = Math.Pow(Math.E, (float)(voicevoxQueue.Count) / 5.0f) + 0.25;
+			//音声合成
+			var stream = await voiceClient.Synthesis(queryNode.ToJsonString());
+			return stream;
 		}
 	}
 }
