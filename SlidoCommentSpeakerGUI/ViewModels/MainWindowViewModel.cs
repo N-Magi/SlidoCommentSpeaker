@@ -19,18 +19,24 @@ using System.Windows.Threading;
 using SlidoCommentSpeakerGUI.ViewModels;
 using SlidoWebSocketLib;
 using VoicevoxRestLib;
+using SlidoCommentSpeakerPluginBase;
+using SlidoCommentSpeakerGUI.Model;
+using System.Windows.Input;
 
 namespace SlidoCommentSpeakerGUI
 {
 	class MainWindowViewModel : ViewModelBase
 	{
+
+		private PluginContext pContext = new();
+
 		SlidoWebSocketLib.SlidoClient slidoClient = null;
-		SoundPlayer player = new();
+
 		private readonly Dispatcher dispatcher;
 
+		SoundPlayer player = new();
 		private VoicevoxClient voiceClient;
 		public Queue<Stream> voicevoxQueue { get; set; }
-
 		private Task voicevoxWorker;
 
 		private ObservableCollection<CommentListViewModel> _comments = new();
@@ -128,6 +134,23 @@ namespace SlidoCommentSpeakerGUI
 			dispatcher = Dispatcher.CurrentDispatcher;
 			voicevoxQueue = new Queue<Stream>();
 			voiceClient = new();
+
+			PluginLoader loader = new PluginLoader();
+			var asm = loader.LoadFromAssemblyName(new System.Reflection.AssemblyName("VoicevoxPlugin"));
+			int count = 0;
+			foreach (Type type in asm.GetTypes())
+			{
+				if (typeof(IPlugin).IsAssignableFrom(type))
+				{
+					IPlugin result = Activator.CreateInstance(type) as IPlugin;
+					result?.Init(pContext);
+					if (result != null)
+					{
+						break;
+					}
+				}
+			}
+
 		}
 
 
@@ -193,9 +216,12 @@ namespace SlidoCommentSpeakerGUI
 				section.Comments.Add(new CommentTipViewModel() { Author = args.QuestonMessage.author.name, Comment = args.QuestonMessage.text_formatted });
 			}));
 
-			if (VoicevoxEnabled)
-				voicevoxQueue.Enqueue(await SpeakVoicevox(args.QuestonMessage.text_formatted));
 
+			if (VoicevoxEnabled)
+			{
+				pContext.InvokeOnCommentRecived(args.QuestonMessage.text_formatted);
+				voicevoxQueue.Enqueue(await SpeakVoicevox(args.QuestonMessage.text_formatted));
+			}
 		}
 
 		private async Task<Stream> SpeakVoicevox(string word)

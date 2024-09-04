@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\SlidoCommentSpeakerPluginBase\SlidoCommentSpeakerPluginBase.csproj" />
     <ProjectReference Include="..\SlidoWebSocketLib\SlidoWebSocketLib.csproj" />
     <ProjectReference Include="..\VoicevoxRestLib\VoicevoxRestLib.csproj" />
   </ItemGroup>
