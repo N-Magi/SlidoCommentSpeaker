@@ -84,6 +84,9 @@ namespace SlidoCommentSpeakerGUI
 			}
 		}
 
+
+		CancellationTokenSource cts = new();
+
 		private bool _voicevoxEnabled = false;
 		public bool VoicevoxEnabled
 		{
@@ -93,39 +96,34 @@ namespace SlidoCommentSpeakerGUI
 				_voicevoxEnabled = value;
 				if (value)
 				{
-					if (voicevoxWorker?.Status != TaskStatus.Running)
-						//voicevox読み上げ用コード ここには絶対書いてはいけない
-						voicevoxWorker = Task.Run(async () =>
+
+					try
+					{
+						if (value)
 						{
-							try
-							{
-								//voicevoxQueue.Enqueue("ヴォイスボックスに接続しました");
-								voicevoxQueue.Enqueue(await SpeakVoicevox("ヴォイスボックスに接続しました"));
-								while (VoicevoxEnabled)
-								{
-									if (voicevoxQueue.Count <= 0) { continue; }
+							plugins[0].RunTask(cts.Token);
+						}
+						else
+						{
+							cts.Cancel();
+						}
+					}
+					catch (Exception ex)
+					{
+						dispatcher?.BeginInvoke(() =>
+						{
+							MessageBox.Show(ex.Message, "Error");
+							VoicevoxEnabled = false;
+						}, null);
+					}
 
-									player.Stream = voicevoxQueue.Dequeue();
-									player.Load();
-									//コメント読み上げ中に新コメントの読み上げ防止
-									player.PlaySync();
-								}
-
-							}
-							catch (Exception ex)
-							{
-								dispatcher?.BeginInvoke(() =>
-								{
-									MessageBox.Show(ex.Message, "Error");
-									VoicevoxEnabled = false;
-								}, null);
-							}
-						});
 				}
 				NotifyPropertyChanged();
 			}
 		}
 		public RelayCommand ConnectButtonPressed { get; set; }
+
+		List<IPlugin> plugins = new List<IPlugin>();
 
 		public MainWindowViewModel()
 		{
@@ -135,22 +133,30 @@ namespace SlidoCommentSpeakerGUI
 			voicevoxQueue = new Queue<Stream>();
 			voiceClient = new();
 
-			PluginLoader loader = new PluginLoader();
-			var asm = loader.LoadFromAssemblyName(new System.Reflection.AssemblyName("VoicevoxPlugin"));
-			int count = 0;
-			foreach (Type type in asm.GetTypes())
+			var files = Directory.GetFiles("./plugins/", "*.dll");
+			
+
+			foreach (var file in files)
 			{
-				if (typeof(IPlugin).IsAssignableFrom(type))
+				//ここ絶対に直せ　汚すぎる　不安定すぎ　ｳﾝｺｰﾄﾞ
+				PluginLoader loader = new PluginLoader(file.Replace("./","\\"));
+				var filename = file.Replace("./plugins/", "");
+				var asm = loader.LoadFromAssemblyName(new System.Reflection.AssemblyName(filename.Remove(filename.Length - 4, 4)));
+				int count = 0;
+				foreach (Type type in asm.GetTypes())
 				{
-					IPlugin result = Activator.CreateInstance(type) as IPlugin;
-					result?.Init(pContext);
-					if (result != null)
+					if (typeof(IPlugin).IsAssignableFrom(type))
 					{
-						break;
+						IPlugin result = Activator.CreateInstance(type) as IPlugin;
+						result?.Init(pContext);
+						plugins.Add(result);
+						if (result != null)
+						{
+							break;
+						}
 					}
 				}
 			}
-
 		}
 
 

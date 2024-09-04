@@ -9,6 +9,8 @@ namespace SlidoCommentSpeakerPluginBase
 
 		string Description { get; }
 		public void Init(IPluginContext context);
+
+		public void RunTask(CancellationToken token);
 	}
 
 	public interface IPluginContext

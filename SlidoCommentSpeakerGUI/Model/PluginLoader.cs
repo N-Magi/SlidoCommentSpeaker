@@ -13,15 +13,18 @@ namespace SlidoCommentSpeakerGUI.Model
 	internal class PluginLoader : AssemblyLoadContext
 	{
 		private AssemblyDependencyResolver resolver;
-		public PluginLoader(string pluginDirectory = "/plugins/")
+		public PluginLoader(string pluginFileName)
 		{
+			var pluginDirectory = "./plugins/";
 			if (!Directory.Exists(pluginDirectory))
 				Directory.CreateDirectory(pluginDirectory);
+
+			var path = System.Environment.CurrentDirectory + pluginFileName;
 
 			var curret = Directory.GetCurrentDirectory();
 			var plugins = curret + pluginDirectory;
 
-			resolver = new AssemblyDependencyResolver(@"C:\\Users\\masay\\source\\repos\\SlidoCommentSpeaker\\SlidoCommentSpeakerGUI\\bin\\Debug\\net8.0-windows8.0\\plugins\\VoicevoxPlugin.dll".Replace('\\', Path.DirectorySeparatorChar));
+			resolver = new AssemblyDependencyResolver(path);
 
 		}
 

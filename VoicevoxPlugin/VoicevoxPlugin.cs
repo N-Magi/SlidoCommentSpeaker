@@ -28,20 +28,15 @@ namespace VoicevoxPlugin
 
 		}
 
-		public async void Init(IPluginContext context)
+		public async void RunTask(CancellationToken token)
 		{
-
-			voicevoxQueue = new Queue<Stream>();
-			voiceClient = new();
-			context.OnCommentRecieved += Context_OnCommentRecieved;
-
 			voicevoxWorker = Task.Run(async () =>
 			{
 				try
 				{
 					//voicevoxQueue.Enqueue("ヴォイスボックスに接続しました");
 					voicevoxQueue.Enqueue(await SpeakVoicevox("ヴォイスボックスに接続しました"));
-					while (true)
+					while (!token.IsCancellationRequested)
 					{
 						if (voicevoxQueue.Count <= 0) { continue; }
 
@@ -59,6 +54,14 @@ namespace VoicevoxPlugin
 			});
 
 			await voicevoxWorker;
+		}
+
+		public async void Init(IPluginContext context)
+		{
+
+			voicevoxQueue = new Queue<Stream>();
+			voiceClient = new();
+			context.OnCommentRecieved += Context_OnCommentRecieved;
 		}
 
 		private async void Context_OnCommentRecieved(object sender, CommentRecievedEventArgs args)
@@ -83,5 +86,7 @@ namespace VoicevoxPlugin
 			var stream = await voiceClient.Synthesis(queryNode.ToJsonString());
 			return stream;
 		}
+
+
 	}
 }
