@@ -6,7 +6,6 @@
         xmlns:local="clr-namespace:SlidoCommentSpeakerGUI"
         xmlns:views="clr-namespace:SlidoCommentSpeakerGUI.Views"
         mc:Ignorable="d"
-        xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
         Title="SlidoCommentSpeakerGUI" Height="auto" Width="auto" SizeToContent="WidthAndHeight">
     <Grid Width="auto" Height="auto">
 
