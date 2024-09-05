@@ -9,10 +9,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.122" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\SlidoCommentSpeakerPluginBase\SlidoCommentSpeakerPluginBase.csproj" />
     <ProjectReference Include="..\SlidoWebSocketLib\SlidoWebSocketLib.csproj" />
     <ProjectReference Include="..\VoicevoxRestLib\VoicevoxRestLib.csproj" />
