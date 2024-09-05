@@ -22,22 +22,28 @@ using VoicevoxRestLib;
 using SlidoCommentSpeakerPluginBase;
 using SlidoCommentSpeakerGUI.Model;
 using System.Windows.Input;
+using System.Runtime.Loader;
 
 namespace SlidoCommentSpeakerGUI
 {
 	class MainWindowViewModel : ViewModelBase
 	{
-
-		private PluginContext pContext = new();
-
-		SlidoWebSocketLib.SlidoClient slidoClient = null;
-
+		private SlidoWebSocketLib.SlidoClient slidoClient = null;
 		private readonly Dispatcher dispatcher;
+		private PluginManager _pluginManager;
 
-		SoundPlayer player = new();
-		private VoicevoxClient voiceClient;
-		public Queue<Stream> voicevoxQueue { get; set; }
-		private Task voicevoxWorker;
+		private ObservableCollection<MenuTipViewModel> _plugins = new();
+		public ObservableCollection<MenuTipViewModel> Plugins
+		{
+			get => _plugins;
+
+			set
+			{
+				_plugins = value;
+				NotifyPropertyChanged();
+			}
+		}
+
 
 		private ObservableCollection<CommentListViewModel> _comments = new();
 		public ObservableCollection<CommentListViewModel> Comments
@@ -85,80 +91,85 @@ namespace SlidoCommentSpeakerGUI
 		}
 
 
-		CancellationTokenSource cts = new();
+		//CancellationTokenSource cts = new();
 
-		private bool _voicevoxEnabled = false;
-		public bool VoicevoxEnabled
-		{
-			get => _voicevoxEnabled;
-			set
-			{
-				_voicevoxEnabled = value;
-				if (value)
-				{
+		//private bool _voicevoxEnabled = false;
+		//public bool VoicevoxEnabled
+		//{
+		//	get => _voicevoxEnabled;
+		//	set
+		//	{
+		//		_voicevoxEnabled = value;
+		//		if (value)
+		//		{
 
-					try
-					{
-						if (value)
-						{
-							plugins[0].RunTask(cts.Token);
-						}
-						else
-						{
-							cts.Cancel();
-						}
-					}
-					catch (Exception ex)
-					{
-						dispatcher?.BeginInvoke(() =>
-						{
-							MessageBox.Show(ex.Message, "Error");
-							VoicevoxEnabled = false;
-						}, null);
-					}
+		//			try
+		//			{
+		//				if (value)
+		//				{
+		//					_pluginManager.Plugins[0].RunTask(cts.Token);
+		//				}
+		//				else
+		//				{
+		//					cts.Cancel();
+		//				}
+		//			}
+		//			catch (Exception ex)
+		//			{
+		//				dispatcher?.BeginInvoke(() =>
+		//				{
+		//					MessageBox.Show(ex.Message, "Error");
+		//					VoicevoxEnabled = false;
+		//				}, null);
+		//			}
 
-				}
-				NotifyPropertyChanged();
-			}
-		}
+		//		}
+		//		NotifyPropertyChanged();
+		//	}
+		//}
 		public RelayCommand ConnectButtonPressed { get; set; }
-
-		List<IPlugin> plugins = new List<IPlugin>();
 
 		public MainWindowViewModel()
 		{
 			ConnectButtonPressed = new RelayCommand(_ => { onConnectButtonPressed(); });
-			//PropertyChanged += MainWindowViewModel_PropertyChanged;
+			//UIスレッドの設定
 			dispatcher = Dispatcher.CurrentDispatcher;
-			voicevoxQueue = new Queue<Stream>();
-			voiceClient = new();
 
-			var files = Directory.GetFiles("./plugins/", "*.dll");
-			
-
-			foreach (var file in files)
-			{
-				//ここ絶対に直せ　汚すぎる　不安定すぎ　ｳﾝｺｰﾄﾞ
-				PluginLoader loader = new PluginLoader(file.Replace("./","\\"));
-				var filename = file.Replace("./plugins/", "");
-				var asm = loader.LoadFromAssemblyName(new System.Reflection.AssemblyName(filename.Remove(filename.Length - 4, 4)));
-				int count = 0;
-				foreach (Type type in asm.GetTypes())
-				{
-					if (typeof(IPlugin).IsAssignableFrom(type))
-					{
-						IPlugin result = Activator.CreateInstance(type) as IPlugin;
-						result?.Init(pContext);
-						plugins.Add(result);
-						if (result != null)
-						{
-							break;
-						}
-					}
-				}
-			}
+			LoadPlugin();
 		}
 
+		private void LoadPlugin()
+		{
+			var pluginDirectory = Environment.CurrentDirectory + "/plugins/";
+			if (!Directory.Exists(pluginDirectory)) Directory.CreateDirectory(pluginDirectory);
+
+			//プラグインリスト読み込み
+			_pluginManager = new PluginManager(pluginDirectory);
+			_pluginManager.LoadPlugins();
+
+			foreach (var plugin in _pluginManager.Plugins)
+			{
+				var menu = new MenuTipViewModel();
+				menu.MenuHeader = plugin.Plugin.Name;
+
+				menu.onMenuActivated += (object sender, EventArgs? e) =>
+				{
+					CancellationTokenSource cts = new();
+					plugin.Plugin.Init(_pluginManager.PluginContext);
+					plugin.cancellationSource = cts;
+					plugin.Plugin.RunTask(cts.Token);
+				};
+
+				menu.onMenuDeactivated += (object sender, EventArgs? e) =>
+				{
+					plugin.cancellationSource.Cancel();
+					plugin.Plugin.Dispose();
+				};
+
+				Plugins.Add(menu);
+			}
+
+		}
 
 		/// <summary>
 		/// 接続・切断ボタン押下時の処理
@@ -217,29 +228,17 @@ namespace SlidoCommentSpeakerGUI
 			var sectionId = args.QuestonMessage.event_section_id;
 			var section = Comments.Where(a => a.SessionID == sectionId).First();
 
+			_pluginManager.PluginContext.InvokeOnCommentRecived(args.QuestonMessage.text_formatted);
+
 			await dispatcher.BeginInvoke(new Action(async () =>
 			{
 				section.Comments.Add(new CommentTipViewModel() { Author = args.QuestonMessage.author.name, Comment = args.QuestonMessage.text_formatted });
 			}));
 
+			//if (VoicevoxEnabled)
+			//{
 
-			if (VoicevoxEnabled)
-			{
-				pContext.InvokeOnCommentRecived(args.QuestonMessage.text_formatted);
-				voicevoxQueue.Enqueue(await SpeakVoicevox(args.QuestonMessage.text_formatted));
-			}
-		}
-
-		private async Task<Stream> SpeakVoicevox(string word)
-		{
-			//voicevoxEnabled = trueの時に実行
-			var query = await voiceClient.GetQueries(word);
-			var queryNode = JsonNode.Parse(query);
-			//残存コメ数に応じて読み上げ速度を向上させる
-			queryNode["speedScale"] = Math.Pow(Math.E, (float)(voicevoxQueue.Count) / 5.0f) + 0.25;
-			//音声合成
-			var stream = await voiceClient.Synthesis(queryNode.ToJsonString());
-			return stream;
+			//}
 		}
 	}
 }

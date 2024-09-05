@@ -10,6 +10,12 @@ namespace VoicevoxPlugin
 {
 	public class VoicevoxPlugin : SlidoCommentSpeakerPluginBase.IPlugin
 	{
+		SoundPlayer player = new();
+		private VoicevoxClient? voiceClient;
+		public Queue<Stream>? voicevoxQueue { get; set; }
+		private Task? voicevoxWorker;
+
+
 		public string Name => "VoiceVox読み上げプラグイン";
 
 		public string Version => "0.0.1";
@@ -18,6 +24,7 @@ namespace VoicevoxPlugin
 
 		public event EventHandler? CanExecuteChanged;
 
+		private IPluginContext _pluginCtx;
 		public bool CanExecute(object? parameter)
 		{
 			return true;
@@ -30,6 +37,8 @@ namespace VoicevoxPlugin
 
 		public async void RunTask(CancellationToken token)
 		{
+
+
 			voicevoxWorker = Task.Run(async () =>
 			{
 				try
@@ -53,15 +62,22 @@ namespace VoicevoxPlugin
 				}
 			});
 
+			voicevoxQueue.Clear();
+
 			await voicevoxWorker;
 		}
 
 		public async void Init(IPluginContext context)
 		{
-
+			_pluginCtx = context;
 			voicevoxQueue = new Queue<Stream>();
 			voiceClient = new();
-			context.OnCommentRecieved += Context_OnCommentRecieved;
+			_pluginCtx.OnCommentRecieved += Context_OnCommentRecieved;
+		}
+
+		public void Dispose()
+		{
+			_pluginCtx.OnCommentRecieved -= Context_OnCommentRecieved;
 		}
 
 		private async void Context_OnCommentRecieved(object sender, CommentRecievedEventArgs args)
@@ -70,10 +86,6 @@ namespace VoicevoxPlugin
 			voicevoxQueue.Enqueue(await SpeakVoicevox(args.Comment));
 		}
 
-		SoundPlayer player = new();
-		private VoicevoxClient voiceClient;
-		public Queue<Stream> voicevoxQueue { get; set; }
-		private Task voicevoxWorker;
 
 		private async Task<Stream> SpeakVoicevox(string word)
 		{

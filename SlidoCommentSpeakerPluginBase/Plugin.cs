@@ -2,7 +2,7 @@
 
 namespace SlidoCommentSpeakerPluginBase
 {
-	public interface IPlugin:ICommand
+	public interface IPlugin:ICommand,IDisposable
 	{
 		string Name { get; }
 		string Version { get; }

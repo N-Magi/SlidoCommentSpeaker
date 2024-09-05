@@ -1,7 +1,5 @@
-﻿using SlidoCommentSpeakerPluginBase;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
@@ -13,30 +11,19 @@ namespace SlidoCommentSpeakerGUI.Model
 	internal class PluginLoader : AssemblyLoadContext
 	{
 		private AssemblyDependencyResolver resolver;
-		public PluginLoader(string pluginFileName)
+		public PluginLoader(string path)
 		{
-			var pluginDirectory = "./plugins/";
-			if (!Directory.Exists(pluginDirectory))
-				Directory.CreateDirectory(pluginDirectory);
-
-			var path = System.Environment.CurrentDirectory + pluginFileName;
-
-			var curret = Directory.GetCurrentDirectory();
-			var plugins = curret + pluginDirectory;
-
-			resolver = new AssemblyDependencyResolver(path);
-
+			resolver = new(path);
 		}
 
 		protected override Assembly? Load(AssemblyName assemblyName)
 		{
 			string assemblyPath = resolver.ResolveAssemblyToPath(assemblyName);
-			if (assemblyPath != null)
-			{
-				return LoadFromAssemblyPath(assemblyPath);
-			}
+			if (assemblyPath == null) return null;
 
-			return null;
+			return LoadFromAssemblyPath(assemblyPath);
 		}
+
+
 	}
 }

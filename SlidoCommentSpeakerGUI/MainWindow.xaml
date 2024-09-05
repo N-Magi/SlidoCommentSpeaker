@@ -6,11 +6,24 @@
         xmlns:local="clr-namespace:SlidoCommentSpeakerGUI"
         xmlns:views="clr-namespace:SlidoCommentSpeakerGUI.Views"
         mc:Ignorable="d"
+        xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
         Title="SlidoCommentSpeakerGUI" Height="auto" Width="auto" SizeToContent="WidthAndHeight">
     <Grid Width="auto" Height="auto">
 
         <StackPanel Orientation="Vertical">
-
+            <Grid>
+                <Menu>
+                    <MenuItem Header="プラグイン設定" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ItemsSource="{Binding Plugins}">
+                        <MenuItem.ItemContainerStyle>
+                            <Style TargetType="MenuItem">
+                                <Setter Property="Header" Value="{Binding Path=MenuHeader}"></Setter>
+                                <Setter Property="IsChecked" Value="{Binding Path=MenuChecked}"></Setter>
+                                <Setter Property="Command" Value="{Binding onMenuClicked}"></Setter>
+                            </Style>
+                        </MenuItem.ItemContainerStyle>
+                    </MenuItem>
+                </Menu>
+            </Grid>
             <Grid Width="auto" Height="auto" Grid.Column="1">
                 <ItemsControl ItemsSource="{Binding Comments}">
                     <ItemsControl.ItemsPanel>
@@ -33,9 +46,6 @@
                         <Label Height="25" VerticalAlignment="top">Slido Connected</Label>
                     </CheckBox>
 
-                    <CheckBox Height="25" VerticalContentAlignment="Center" VerticalAlignment="Top" Margin="130,0,0,0" IsEnabled="True" IsChecked="{Binding VoicevoxEnabled}" >
-                        <Label Height="25" VerticalAlignment="top">VoiceVox Connected</Label>
-                    </CheckBox>
                 </Grid>
                 <Grid Name="Input">
                     <TextBox Name="SlidoUrl" Text="{Binding SlidoUrl}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,0,0,0" Height="25" TextAlignment="Left" VerticalContentAlignment="Center" Width="320"></TextBox>
