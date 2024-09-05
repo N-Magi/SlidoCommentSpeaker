@@ -15,9 +15,4 @@
     <ProjectReference Include="..\SlidoCommentSpeakerPluginBase\SlidoCommentSpeakerPluginBase.csproj" />
     <ProjectReference Include="..\VoicevoxRestLib\VoicevoxRestLib.csproj" />
   </ItemGroup>
-
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="xcopy &quot;C:\Users\masay\source\repos\SlidoCommentSpeaker\VoicevoxPlugin\bin\Debug\net8.0\VoicevoxPlugin.dll&quot; &quot;C:\Users\masay\source\repos\SlidoCommentSpeaker\SlidoCommentSpeakerGUI\bin\Debug\net8.0-windows8.0\plugins&quot;" />
-  </Target>
-
 </Project>
